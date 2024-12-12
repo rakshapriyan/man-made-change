@@ -1,30 +1,68 @@
 import torch
 import torch.nn as nn
-from torchvision import models
+import torch.nn.functional as F
 
-# Define a Siamese Network for Change Detection
-class ResCNN(nn.Module):
-    def __init__(self, base_model):
-        super(ResCNN, self).__init__()
-        self.feature_extractor = base_model  # Pretrained CNN (e.g., ResNet)
-        self.fc = nn.Sequential(
-            nn.Linear(512, 128),
-            nn.ReLU(),
-            nn.Linear(128, 2)  # Change or No-Change
+class DynamicSiameseSegmentor(nn.Module):
+    def __init__(self, feature_extractor, segmentation_head):
+        """
+        :param feature_extractor: A CNN backbone for feature extraction (e.g., ResNet).
+        :param segmentation_head: A decoder head for segmentation (e.g., U-Net or FPN).
+        """
+        super(DynamicSiameseSegmentor, self).__init__()
+        self.feature_extractor = feature_extractor  # Shared CNN for all images
+        self.segmentation_head = segmentation_head  # Segmentation head for the last image
+
+    def forward(self, images):
+        """
+        :param images: List of aligned images (dynamic number). Last image is for segmentation.
+        :return: similarity scores (features aggregated) and segmentation map for the last image.
+        """
+        # Extract features for all images
+        features = [self.feature_extractor(image) for image in images]
+
+        # Aggregate features for comparison (e.g., average pooling)
+        aggregated_features = torch.mean(torch.stack(features[:-1]), dim=0)
+
+        # Segment the last image
+        last_image_features = features[-1]
+        segmentation_map = self.segmentation_head(last_image_features)
+
+        return aggregated_features, segmentation_map
+
+# Example feature extractor (ResNet backbone)
+class FeatureExtractor(nn.Module):
+    def __init__(self, backbone):
+        super(FeatureExtractor, self).__init__()
+        self.backbone = nn.Sequential(*list(backbone.children())[:-2])  # Remove FC layers
+
+    def forward(self, x):
+        return self.backbone(x)
+
+# Example segmentation head (basic U-Net style)
+class SegmentationHead(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(SegmentationHead, self).__init__()
+        self.decoder = nn.Sequential(
+            nn.Conv2d(in_channels, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, out_channels, kernel_size=1)
         )
 
-    def forward(self, img1, img2):
-        feat1 = self.feature_extractor(img1)
-        feat2 = self.feature_extractor(img2)
-        diff = torch.abs(feat1 - feat2)  # Compute feature difference
-        out = self.fc(diff)
-        return out
+    def forward(self, x):
+        return self.decoder(x)
 
-# Example Model Initialization
-base_model = models.resnet18(pretrained=True)
-base_model.fc = nn.Identity()  # Remove classification head
-model = ResCNN(base_model)
+# Instantiate the model
+from torchvision.models import resnet18
 
+backbone = resnet18(pretrained=True)
+feature_extractor = FeatureExtractor(backbone)
+segmentation_head = SegmentationHead(in_channels=512, out_channels=1)  # Binary segmentation
 
-{'event': 'interaction', 'type': 'mousedown', 'coordinates': [28.1889374044219, 76.85657057751139]}
-{'event': 'interaction', 'type': 'mousedown', 'coordinates': [28.176643457015388, 76.87137449764242]}
+model = DynamicSiameseSegmentor(feature_extractor, segmentation_head)
+
+# Test the model
+dummy_images = [torch.rand(1, 3, 224, 224) for _ in range(5)]  # 5 aligned images
+aggregated_features, segmentation_map = model(dummy_images)
+
+print("Aggregated Features Shape:", aggregated_features.shape)
+print("Segmentation Map Shape:", segmentation_map.shape)
