@@ -56,13 +56,14 @@ from torchvision.models import resnet18
 
 backbone = resnet18(pretrained=True)
 feature_extractor = FeatureExtractor(backbone)
-segmentation_head = SegmentationHead(in_channels=512, out_channels=1)  # Binary segmentation
+segmentation_head = SegmentationHead(in_channels=512, out_channels=1)
 
 model = DynamicSiameseSegmentor(feature_extractor, segmentation_head)
 
 # Test the model
-dummy_images = [torch.rand(1, 3, 224, 224) for _ in range(5)]  # 5 aligned images
+dummy_images = [torch.rand(1, 3, 224, 224) for _ in range(5)]
 aggregated_features, segmentation_map = model(dummy_images)
 
-print("Aggregated Features Shape:", aggregated_features.shape)
-print("Segmentation Map Shape:", segmentation_map.shape)
+print("Aggregated Features Shape:", aggregated_features)
+print("Segmentation Map Shape:", segmentation_map)
+
