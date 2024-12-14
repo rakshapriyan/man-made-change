@@ -7,6 +7,8 @@ import pytorch_lightning as pl
 import torch
 import os
 
+torch.set_float32_matmul_precision('medium')
+
 # split the train set into two
 seed = torch.Generator().manual_seed(42)
 
@@ -28,10 +30,10 @@ class SegmentationDataModule(pl.LightningDataModule):
         self.val_dataset = valid_set
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=15)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=1,persistent_workers=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=15)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=15,persistent_workers=True)
 
 checkpoint_callback = ModelCheckpoint(
     monitor="train_loss",  # Monitor the 'train_loss' to decide the best model
@@ -55,7 +57,7 @@ if last_checkpoint:
 else:
     model = CustomFCN(num_channels=6, num_classes=1, learning_rate=1e-3)
 
-data = SegmentationDataModule(dataset=MultiChanDataset("./dataset_1"),batch_size=5)
+data = SegmentationDataModule(dataset=MultiChanDataset("./dataset_1"),batch_size=1)
 trainer = pl.Trainer(
     log_every_n_steps=1,
     callbacks=[checkpoint_callback],
@@ -63,6 +65,3 @@ trainer = pl.Trainer(
     enable_model_summary = True,
 )
 trainer.fit(model, data)
-
-#  [64, 3, 7, 7], expected input[5, 2, 100, 113]
-#  [64, 3, 7, 7], expected input[5, 2, 100, 113]

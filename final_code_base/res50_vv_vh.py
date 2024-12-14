@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchvision.models.segmentation import fcn_resnet50
+from torchvision.models.segmentation import fcn_resnet50,FCN_ResNet50_Weights
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, Dataset
 import torch.nn.functional as F
@@ -14,7 +14,7 @@ class CustomFCN(pl.LightningModule):
         self.learning_rate = learning_rate
 
         # Load pretrained FCN ResNet50 model
-        self.model = fcn_resnet50(pretrained=True)
+        self.model = fcn_resnet50(weights=FCN_ResNet50_Weights.DEFAULT)
 
         # Modify the first convolution layer to accept `num_channels` input
         self.model.backbone.conv1 = nn.Conv2d(
