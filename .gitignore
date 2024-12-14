@@ -1,1 +1,5 @@
 *.pyc
+dataset
+dataset_1
+lightning_logs
+checkpoints
